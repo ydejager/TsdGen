@@ -8,5 +8,4 @@ module Main =
     
     [<EntryPoint>]
     let main argv =
-        let x = Namespace ("df", [])
         Tests.runTestsInAssembly defaultConfig argv

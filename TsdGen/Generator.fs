@@ -10,29 +10,37 @@ module Generator =
 
     let rec type' (t: Type): string = 
         match t with
-        | String -> "string"
         | Null -> "null"
+        | String -> "string"
         | Number -> "number"
-        | Union ts -> ts |> List.map type' |> String.concat " | "
+        | Bool -> "boolean"
+        | List t -> sprintf "%s[]" (type' t)
+        | Object (NsName ns, IfaceName s) -> sprintf "%s.%s" ns s
+        | Union ts -> ts |> List.map type' |> String.concat " | " |> sprintf "(%s)"
 
     let member' (i: int) (m: Member): (string * int) seq = 
         seq {
             match m with
-            | Property (name, typ) -> 
+            | Property (PropName name, typ) -> 
                 yield sprintf "%s: %s" name (type' typ), i
         }
 
     let rec declaration i ast: (string * int) seq = 
         seq {
             match ast with
-            | Namespace (ns, decls) -> 
-                yield sprintf "namespace %s {" ns, i
+            | Namespace (NsName ns, decls) -> 
+                yield sprintf "declare namespace %s {" ns, i
                 for decl in decls do
                     yield! declaration (i + 1) decl
                 yield "}", i
 
-            | Interface (name, ms) ->
-                yield sprintf "interface %s {" name, i
+            | Interface (IfaceName name, extends, ms) ->
+                let extendString = 
+                    match extends with
+                    | Some (Extends (NsName ns, IfaceName iface)) -> sprintf " extends %s.%s" ns iface
+                    | None -> ""
+
+                yield sprintf "interface %s%s {" name extendString, i
                 for m in ms do
                     yield! member' (i + 1) m
                 yield "}", i
@@ -42,12 +50,4 @@ module Generator =
         declarations
         |> Seq.collect (declaration 0)
         |> Seq.map (fun (l, i) -> (indent i) + l)
-        |> String.concat "\n"
-            
-    let check = 
-        generate <| 
-            [ Namespace("Umbrella", 
-                [ Interface("Blaat", 
-                        [ Property("X", Union ([String; Null])) ]
-                ) ]
-            )]
+        |> String.concat "\n"        
