@@ -12,13 +12,21 @@ module Tests =
 
   type TestClass() =
     member this.X = ""
-    member this.Y = new TestClass2()
+    member this.Y = TestClass2()
     member this.L: string list = []
 
+  type ClassWithTupleProp() =
+    member this.X = (1, "2")
+
   module Expect =
-    let generatedCode expected ast = 
+    let declarationCode expected ast = 
       ast
       |> Generator.generate 
+      |> fun output -> Expect.stringContains output expected "Correct code"
+
+    let typeCode expected t = 
+      t
+      |> Generator.type' 
       |> fun output -> Expect.stringContains output expected "Correct code"
 
   [<Tests>]
@@ -26,32 +34,45 @@ module Tests =
     testList "All" [
       testList "Generator" [
         testCase "Namespace outputs namespace keyword" <| fun _ ->
-          [Namespace (NsName "x", [])]
-          |> Expect.generatedCode "declare namespace x {"
+          [Namespace ([Id "x"], [])]
+          |> Expect.declarationCode "declare namespace x {"
+        
+        testList "Interfaces" [
+          testCase "Interface outputs interface keyword" <| fun _ ->
+            [Interface (Id "c", None, [])]
+            |> Expect.declarationCode "interface c {"
 
-        testCase "Interface outputs interface keyword" <| fun _ ->
-          [Interface (IfaceName "c", None, [])]
-          |> Expect.generatedCode "interface c {"
+          testCase "Interface with base outputs interface with extends" <| fun _ ->
+            [Interface (Id "A", Some <| Extends ([Id "Bla"], Id "B"), [])]
+            |> Expect.declarationCode "interface A extends Bla.B {"
 
-        testCase "Interface with base outputs interface with extends" <| fun _ ->
-          [Interface (IfaceName "A", Some <| Extends (NsName "Bla", IfaceName "B"), [])]
-          |> Expect.generatedCode "interface A extends Bla.B {"
+          testCase "Generic interface with one type" <| fun _ ->
+            [Interface (Id "A", Some <| Extends ([Id "Bla"], Id "B"), [])]
+            |> Expect.declarationCode "interface A extends Bla.B {"
+        ]
+        testList "Properties" [        
+          testCase "bool property" <| fun _ ->
+            [Interface (Id "c", None, [Property (PropName "p", Bool)])]
+            |> Expect.declarationCode "p: boolean"
 
-        testCase "bool property" <| fun _ ->
-          [Interface (IfaceName "c", None, [Property (PropName "p", Bool)])]
-          |> Expect.generatedCode "p: boolean"
+          testCase "string property" <| fun _ ->
+            [Interface (Id "c", None, [Property (PropName "p", String)])]
+            |> Expect.declarationCode "p: string"
 
-        testCase "string property" <| fun _ ->
-          [Interface (IfaceName "c", None, [Property (PropName "p", String)])]
-          |> Expect.generatedCode "p: string"
+          testCase "list property" <| fun _ ->
+            [Interface (Id "c", None, [Property (PropName "p", List String)])]
+            |> Expect.declarationCode "p: string[]"
 
-        testCase "list property" <| fun _ ->
-          [Interface (IfaceName "c", None, [Property (PropName "p", List String)])]
-          |> Expect.generatedCode "p: string[]"
+          testCase "Union property" <| fun _ ->
+            [Interface (Id "c", None, [Property (PropName "p", Union ([String; Number]))])]
+            |> Expect.declarationCode "p: (string | number)"
+        ]
 
-        testCase "Union property" <| fun _ ->
-          [Interface (IfaceName "c", None, [Property (PropName "p", Union ([String; Number]))])]
-          |> Expect.generatedCode "p: (string | number)"
+        testList "Types" [
+          testCase "Generic type" <| fun _ ->
+            Generic (Id "X", [Bool])
+            |> Expect.typeCode "X<boolean>"
+        ]
       ]
 
       testList "Transform" [
@@ -61,14 +82,32 @@ module Tests =
           |> fun decl -> 
             Expect.equal 
               decl 
-              (Namespace (NsName "TsdGen.Tests", 
+              (Namespace ([Id "TsdGen"; Id "Tests"], 
                 [
-                  (Interface (IfaceName "TestClass", 
+                  (Interface (Id "TestClass", 
                     None, 
                     [
                       Property (PropName "X", String)
-                      Property (PropName "Y", Union [Object (NsName "TsdGen.Tests", IfaceName "TestClass2"); Null])
+                      Property (PropName "Y", Union [Object ([Id "TsdGen"; Id "Tests"], Id "TestClass2"); Null])
                       Property (PropName "L", List String)
+                    ]
+                  ))
+                ]
+              ))
+              ""
+          
+        testCase "Tuple class is transformed" <| fun _ -> 
+          typeof<ClassWithTupleProp>
+          |> Transform.fromClass 
+          |> fun decl -> 
+            Expect.equal 
+              decl 
+              (Namespace ([Id "TsdGen"; Id "Tests"], 
+                [
+                  (Interface (Id "ClassWithTupleProp", 
+                    None, 
+                    [
+                      Property (PropName "X", Generic (Id "Tuple", [Number; String]))
                     ]
                   ))
                 ]
@@ -79,11 +118,11 @@ module Tests =
       testList "Simplify" [
         testCase "interfaces in the same namespace are grouped" <| fun _ ->             
               [
-                (Namespace (NsName "TsdGen.Tests", 
-                  [(Interface (IfaceName "Test1", None, []))]
+                (Namespace ([Id  "TsdGen.Tests"], 
+                  [(Interface (Id "Test1", None, []))]
                 ))
-                (Namespace (NsName "TsdGen.Tests", 
-                  [(Interface (IfaceName "Test2", None, []))]
+                (Namespace ([Id  "TsdGen.Tests"], 
+                  [(Interface (Id "Test2", None, []))]
                 ))
               ]
               |> Optimize.combineNamespaces
@@ -91,10 +130,10 @@ module Tests =
                 Expect.equal
                   actual
                   [
-                    (Namespace (NsName "TsdGen.Tests", 
+                    (Namespace ([Id  "TsdGen.Tests"], 
                       [
-                        (Interface (IfaceName "Test1", None, []))
-                        (Interface (IfaceName "Test2", None, []))
+                        (Interface (Id "Test1", None, []))
+                        (Interface (Id "Test2", None, []))
                       ]
                     ))
                   ]

@@ -8,6 +8,7 @@ module Generator =
         |> List.replicate i
         |> String.concat ""
 
+    let ns = List.map (fun (Id s) -> s) >> String.concat "." 
     let rec type' (t: Type): string = 
         match t with
         | Null -> "null"
@@ -15,7 +16,13 @@ module Generator =
         | Number -> "number"
         | Bool -> "boolean"
         | List t -> sprintf "%s[]" (type' t)
-        | Object (NsName ns, IfaceName s) -> sprintf "%s.%s" ns s
+        | Object (nss, Id s) -> 
+            sprintf "%s.%s" (ns nss) s
+        | Generic (Id name, ts) ->
+            ts 
+            |> Seq.map type'
+            |> String.concat "," 
+            |> sprintf "%s<%s>" name
         | Union ts -> ts |> List.map type' |> String.concat " | " |> sprintf "(%s)"
 
     let member' (i: int) (m: Member): (string * int) seq = 
@@ -28,16 +35,16 @@ module Generator =
     let rec declaration i ast: (string * int) seq = 
         seq {
             match ast with
-            | Namespace (NsName ns, decls) -> 
-                yield sprintf "declare namespace %s {" ns, i
+            | Namespace (nss, decls) -> 
+                yield sprintf "declare namespace %s {" (ns nss), i
                 for decl in decls do
                     yield! declaration (i + 1) decl
                 yield "}", i
 
-            | Interface (IfaceName name, extends, ms) ->
+            | Interface (Id name, extends, ms) ->
                 let extendString = 
                     match extends with
-                    | Some (Extends (NsName ns, IfaceName iface)) -> sprintf " extends %s.%s" ns iface
+                    | Some (Extends (nss, Id iface)) -> sprintf " extends %s.%s" (ns nss) iface
                     | None -> ""
 
                 yield sprintf "interface %s%s {" name extendString, i

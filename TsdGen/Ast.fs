@@ -1,9 +1,10 @@
 namespace TsdGen
 
 module Syntax =
-    type NsName = | NsName of string
-    type IfaceName = | IfaceName of string
+    type Id = | Id of string
     type PropName = | PropName of string
+    type Ns = Id list
+    type TypeName = Id
 
     type Type =
         | Null
@@ -11,14 +12,15 @@ module Syntax =
         | Number
         | Bool
         | List of Type
-        | Object of (NsName * IfaceName)
+        | Object of (Ns * TypeName)
         | Union of Type list
+        | Generic of TypeName * Type list
 
     type Member =
         | Property of PropName * Type:Type
 
-    type Extends = | Extends of NsName * IfaceName
+    type Extends = | Extends of Ns * TypeName
 
     type Declaration = 
-        | Namespace of NsName * Declarations:Declaration list
-        | Interface of IfaceName * Extends option * Members: Member list
+        | Namespace of Ns * Declarations:Declaration list
+        | Interface of TypeName * Extends option * Members: Member list

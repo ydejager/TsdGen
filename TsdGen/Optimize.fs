@@ -3,16 +3,16 @@ namespace TsdGen
 module Optimize =
     open Syntax
 
-    let rec private stripNs ns decl = 
+    let rec private stripNs (rootNs: Ns) decl = 
         match decl with
-        | Namespace (NsName subNs, ds) -> 
+        | Namespace (subNs, ds) -> 
             ds
-            |> List.collect (stripNs (ns + subNs))
-        | x -> [(ns, x)]
+            |> List.collect (stripNs (rootNs @ subNs))
+        | other -> [(rootNs, other)]
 
     let combineNamespaces declarations =
         declarations
-        |> List.collect (stripNs "")
+        |> List.collect (stripNs [])
         |> List.groupBy fst
-        |> List.map (fun (ns, l) -> NsName ns, List.map snd l)
+        |> List.map (fun (ns, l) -> ns, List.map snd l)
         |> List.map Namespace
