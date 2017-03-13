@@ -18,6 +18,10 @@ module Tests =
   type ClassWithTupleProp() =
     member this.X = (1, "2")
 
+  type GenericClass<'T>() =
+    class
+    end
+
   module Expect =
     let declarationCode expected ast = 
       ast
@@ -39,32 +43,32 @@ module Tests =
         
         testList "Interfaces" [
           testCase "Interface outputs interface keyword" <| fun _ ->
-            [Interface (Id "c", None, [])]
+            [Interface (Id "c", [], None, [])]
             |> Expect.declarationCode "interface c {"
 
           testCase "Interface with base outputs interface with extends" <| fun _ ->
-            [Interface (Id "A", Some <| Extends ([Id "Bla"], Id "B"), [])]
+            [Interface (Id "A", [], Some <| Extends ([Id "Bla"], Id "B"), [])]
             |> Expect.declarationCode "interface A extends Bla.B {"
 
           testCase "Generic interface with one type" <| fun _ ->
-            [Interface (Id "A", Some <| Extends ([Id "Bla"], Id "B"), [])]
-            |> Expect.declarationCode "interface A extends Bla.B {"
+            [Interface (Id "A", [Id "T"], None, [])]
+            |> Expect.declarationCode "interface A<T> {"
         ]
         testList "Properties" [        
           testCase "bool property" <| fun _ ->
-            [Interface (Id "c", None, [Property (PropName "p", Bool)])]
+            [Interface (Id "c", [], None, [Property (PropName "p", Bool)])]
             |> Expect.declarationCode "p: boolean"
 
           testCase "string property" <| fun _ ->
-            [Interface (Id "c", None, [Property (PropName "p", String)])]
+            [Interface (Id "c", [], None, [Property (PropName "p", String)])]
             |> Expect.declarationCode "p: string"
 
           testCase "list property" <| fun _ ->
-            [Interface (Id "c", None, [Property (PropName "p", List String)])]
+            [Interface (Id "c", [], None, [Property (PropName "p", List String)])]
             |> Expect.declarationCode "p: string[]"
 
           testCase "Union property" <| fun _ ->
-            [Interface (Id "c", None, [Property (PropName "p", Union ([String; Number]))])]
+            [Interface (Id "c", [], None, [Property (PropName "p", Union ([String; Number]))])]
             |> Expect.declarationCode "p: (string | number)"
         ]
 
@@ -84,7 +88,8 @@ module Tests =
               decl 
               (Namespace ([Id "TsdGen"; Id "Tests"], 
                 [
-                  (Interface (Id "TestClass", 
+                  (Interface (Id "TestClass",
+                    [],
                     None, 
                     [
                       Property (PropName "X", String)
@@ -104,12 +109,26 @@ module Tests =
               decl 
               (Namespace ([Id "TsdGen"; Id "Tests"], 
                 [
-                  (Interface (Id "ClassWithTupleProp", 
+                  (Interface (Id "ClassWithTupleProp",
+                    [],
                     None, 
                     [
                       Property (PropName "X", Generic (Id "Tuple", [Number; String]))
                     ]
                   ))
+                ]
+              ))
+              ""
+
+        testCase "Generic class is transformed" <| fun _ -> 
+          typedefof<GenericClass<_>>
+          |> Transform.fromClass 
+          |> fun decl -> 
+            Expect.equal 
+              decl 
+              (Namespace ([Id "TsdGen"; Id "Tests"], 
+                [
+                  (Interface (Id "GenericClass", [Id "T"], None, []))
                 ]
               ))
               ""
@@ -119,10 +138,10 @@ module Tests =
         testCase "interfaces in the same namespace are grouped" <| fun _ ->             
               [
                 (Namespace ([Id  "TsdGen.Tests"], 
-                  [(Interface (Id "Test1", None, []))]
+                  [(Interface (Id "Test1", [], None, []))]
                 ))
                 (Namespace ([Id  "TsdGen.Tests"], 
-                  [(Interface (Id "Test2", None, []))]
+                  [(Interface (Id "Test2", [], None, []))]
                 ))
               ]
               |> Optimize.combineNamespaces
@@ -132,8 +151,8 @@ module Tests =
                   [
                     (Namespace ([Id  "TsdGen.Tests"], 
                       [
-                        (Interface (Id "Test1", None, []))
-                        (Interface (Id "Test2", None, []))
+                        (Interface (Id "Test1", [], None, []))
+                        (Interface (Id "Test2", [], None, []))
                       ]
                     ))
                   ]

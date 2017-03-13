@@ -3,12 +3,10 @@ namespace TsdGen
 module Generator =
     open Syntax
     
-    let indent i = 
-        "    " 
-        |> List.replicate i
-        |> String.concat ""
+    let indent i = "    " |> List.replicate i |> String.concat ""
+    let concatIds sep = List.map (fun (Id s) -> s) >> String.concat sep
+    let ns = concatIds "." 
 
-    let ns = List.map (fun (Id s) -> s) >> String.concat "." 
     let rec type' (t: Type): string = 
         match t with
         | Null -> "null"
@@ -31,6 +29,8 @@ module Generator =
             | Property (PropName name, typ) -> 
                 yield sprintf "%s: %s" name (type' typ), i
         }
+        
+    let flip f a b = f b a
 
     let rec declaration i ast: (string * int) seq = 
         seq {
@@ -41,13 +41,21 @@ module Generator =
                     yield! declaration (i + 1) decl
                 yield "}", i
 
-            | Interface (Id name, extends, ms) ->
+            | Interface (Id name, generics, extends, ms) ->
+                let genericsString =
+                    generics 
+                    |> concatIds ", " 
+                    |> Some 
+                    |> Option.filter (fun s -> s.Length > 0)
+                    |> Option.map (sprintf "<%s>")
+                    |> (flip defaultArg) ""
+
                 let extendString = 
                     match extends with
-                    | Some (Extends (nss, Id iface)) -> sprintf " extends %s.%s" (ns nss) iface
+                    | Some (Extends (nss, Id iface)) -> sprintf "extends %s.%s " (ns nss) iface
                     | None -> ""
 
-                yield sprintf "interface %s%s {" name extendString, i
+                yield sprintf "interface %s%s %s{" name genericsString extendString, i
                 for m in ms do
                     yield! member' (i + 1) m
                 yield "}", i

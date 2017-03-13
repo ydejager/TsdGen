@@ -48,7 +48,6 @@
     <Compile Include="Transform.fs" />
     <Compile Include="Dll.fs" />
     <Compile Include="Optimize.fs" />
-    <Compile Include="TsdGen.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">14</MinimumVisualStudioVersion>

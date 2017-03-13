@@ -23,4 +23,4 @@ module Syntax =
 
     type Declaration = 
         | Namespace of Ns * Declarations:Declaration list
-        | Interface of TypeName * Extends option * Members: Member list
+        | Interface of TypeName * GenericParams: Id list * BaseType : Extends option * Members: Member list
